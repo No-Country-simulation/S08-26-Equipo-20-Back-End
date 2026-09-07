@@ -1,0 +1,2 @@
+class TeamsService:
+    pass

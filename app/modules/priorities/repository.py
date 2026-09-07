@@ -1,0 +1,2 @@
+class PrioritiesRepository:
+    pass
