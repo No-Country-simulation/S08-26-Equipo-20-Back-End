@@ -56,3 +56,17 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def require_role(*roles: str):
+    async def check(user: CurrentUser):
+        if user.role.name not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden",
+            )
+        return user
+    return check
+
+AdminUser = Annotated[User, Depends(require_role("ADMIN"))]
+AgentOrAdmin = Annotated[User, Depends(require_role("AGENT", "ADMIN"))]
