@@ -1,0 +1,36 @@
+name: sf-back-end
+
+services:
+  sf-back-end:
+    image: sf-back-end:latest
+    container_name: sf-back-end
+    build: .
+    entrypoint: ./entrypoint.sh
+    depends_on:
+      sf-back-db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://serviceflow:serviceflow@sf-back-db:5432/serviceflow
+      JWT_SECRET: serviceflow-dev-secret
+
+  sf-back-db:
+    image: postgres:16
+    container_name: sf-back-db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: serviceflow
+      POSTGRES_USER: serviceflow
+      POSTGRES_PASSWORD: serviceflow
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U serviceflow -d serviceflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

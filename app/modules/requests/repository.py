@@ -1,0 +1,2 @@
+class RequestsRepository:
+    pass

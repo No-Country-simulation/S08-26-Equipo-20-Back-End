@@ -1,0 +1,2 @@
+class PrioritiesService:
+    pass
