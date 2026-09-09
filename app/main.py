@@ -1,6 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.modules.categories.model import Categorie  # noqa: F401
+from app.modules.priorities.model import Prioritie  # noqa: F401
+from app.modules.requests.model import (  # noqa: F401
+    Approval,
+    Attachment,
+    Comment,
+    Request,
+    RequestHistory,
+    Sla,
+)
+from app.modules.teams.model import Team  # noqa: F401
+from app.modules.users.model import Role, User  # noqa: F401
 from app.modules.auth.router import router as auth_router
 from app.modules.users.router import router as users_router
 from app.modules.teams.router import router as teams_router
