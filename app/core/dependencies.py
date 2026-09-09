@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SessionLocal
 from app.core.security import decode_token
+from app.modules.auth.repository import AuthRepository
+from app.modules.users.model import User
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -38,3 +40,19 @@ def get_current_user_id(
 
 
 CurrentUserId = Annotated[str, Depends(get_current_user_id)]
+
+
+async def get_current_user(
+    user_id: CurrentUserId,
+    db: DbDep,
+) -> User:
+    user = await AuthRepository(db).get_user_by_id(int(user_id))
+    if user is None or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    return user
+
+
+CurrentUser = Annotated[User, Depends(get_current_user)]

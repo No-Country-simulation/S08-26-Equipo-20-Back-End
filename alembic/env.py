@@ -7,7 +7,18 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-from app import models  # noqa: F401
+from app.modules.categories.model import Categorie  # noqa: F401
+from app.modules.priorities.model import Prioritie  # noqa: F401
+from app.modules.requests.model import (  # noqa: F401
+    Approval,
+    Attachment,
+    Comment,
+    Request,
+    RequestHistory,
+    Sla,
+)
+from app.modules.teams.model import Team  # noqa: F401
+from app.modules.users.model import Role, User  # noqa: F401
 from app.core.config import settings
 from app.models.base import Base
 

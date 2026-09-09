@@ -9,7 +9,7 @@ COPY alembic.ini ./
 COPY entrypoint.sh ./
 
 RUN chmod +x entrypoint.sh \
-    && pip install --no-cache-dir .
+    && pip install --no-cache-dir ".[dev]"
 
 EXPOSE 8000
 
