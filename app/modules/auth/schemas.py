@@ -1,6 +1,6 @@
-from datetime import datetime
+from pydantic import BaseModel, EmailStr, Field
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
+from app.modules.users.schemas import UserResponse
 
 
 class LoginRequest(BaseModel):
@@ -18,30 +18,4 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(min_length=8)
 
 
-class UserResponse(BaseModel):
-    id: int
-    name: str
-    email: EmailStr
-    role: str
-    team: str | None
-    must_change_password: bool
-    is_active: bool
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
-
-    @model_validator(mode="before")
-    @classmethod
-    def flatten_relations(cls, data):
-        if data is not None and not isinstance(data, dict) and hasattr(data, "role"):
-            return {
-                "id": data.id,
-                "name": data.name,
-                "email": data.email,
-                "role": data.role.name,
-                "team": data.team.name if data.team else None,
-                "must_change_password": data.must_change_password,
-                "is_active": data.is_active,
-                "created_at": data.created_at,
-            }
-        return data
+__all__ = ["LoginRequest", "TokenResponse", "ChangePasswordRequest", "UserResponse"]
