@@ -69,15 +69,15 @@ async def create_test_user(email: str, name: str, role_name: str, password: str 
 
 
 async def run_e2e():
-    print(f"\n{BOLD}{GREEN}🚀 INICIANDO PRUEBA END-TO-END (E2E) - SERVICEFLOW{RESET}\n")
+    print(f"\n{BOLD}{GREEN}>>> INICIANDO PRUEBA END-TO-END (E2E) - SERVICEFLOW{RESET}\n")
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Generar emails únicos para la prueba
         run_id = uuid.uuid4().hex[:6]
-        admin_email = f"admin-{run_id}@serviceflow.local"
-        agent_email = f"agent-{run_id}@serviceflow.local"
-        user_email = f"colaborador-{run_id}@serviceflow.local"
+        admin_email = f"admin-{run_id}@test.com"
+        agent_email = f"agent-{run_id}@test.com"
+        user_email = f"colaborador-{run_id}@test.com"
         password = "Secret123!"
 
         created_user_ids = []
@@ -108,16 +108,19 @@ async def run_e2e():
             print_step(2, "Autenticación de los 3 usuarios vía /auth/login")
             
             resp_admin = await client.post("/auth/login", json={"email": admin_email, "password": password})
+            assert resp_admin.status_code == 200, f"Login falló: {resp_admin.text}"
             admin_token = resp_admin.json()["access_token"]
             admin_headers = {"Authorization": f"Bearer {admin_token}"}
             print_success("Token JWT obtenido para ADMIN")
 
             resp_agent = await client.post("/auth/login", json={"email": agent_email, "password": password})
+            assert resp_agent.status_code == 200, f"Login falló: {resp_agent.text}"
             agent_token = resp_agent.json()["access_token"]
             agent_headers = {"Authorization": f"Bearer {agent_token}"}
             print_success("Token JWT obtenido para AGENT")
 
             resp_user = await client.post("/auth/login", json={"email": user_email, "password": password})
+            assert resp_user.status_code == 200, f"Login falló: {resp_user.text}"
             user_token = resp_user.json()["access_token"]
             user_headers = {"Authorization": f"Bearer {user_token}"}
             print_success("Token JWT obtenido para USER")
@@ -321,14 +324,20 @@ async def run_e2e():
             # RESUMEN FINAL
             # -------------------------------------------------------------
             print(f"\n{BOLD}{GREEN}======================================================================{RESET}")
-            print(f"{BOLD}{GREEN}🎉 ¡TODAS LAS PRUEBAS END-TO-END PASARON SATISFACTORIAMENTE!{RESET}")
+            print(f"{BOLD}{GREEN}*** ¡TODAS LAS PRUEBAS END-TO-END PASARON SATISFACTORIAMENTE!{RESET}")
             print(f"{BOLD}{GREEN}======================================================================{RESET}\n")
 
         finally:
             # Limpieza de datos creados durante la prueba
             print_info("Limpiando datos de prueba...")
             async with SessionLocal() as session:
+                # Borrar en orden inverso (hijos primero) para evitar errores de llave foránea
+                from app.modules.requests.model import Approval, Comment, RequestHistory, Sla
                 for req_id in created_request_ids:
+                    await session.execute(delete(Approval).where(Approval.request_id == req_id))
+                    await session.execute(delete(Comment).where(Comment.request_id == req_id))
+                    await session.execute(delete(RequestHistory).where(RequestHistory.request_id == req_id))
+                    await session.execute(delete(Sla).where(Sla.request_id == req_id))
                     await session.execute(delete(Request).where(Request.id == req_id))
                 for cat_id in created_category_ids:
                     await session.execute(delete(Categorie).where(Categorie.id == cat_id))
