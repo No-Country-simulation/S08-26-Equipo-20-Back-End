@@ -24,6 +24,10 @@ async def create_user_helper(
 ) -> User:
     async with SessionLocal() as session:
         role = await session.scalar(select(Role).where(Role.name == role_name))
+        if role is None:
+            role = Role(name=role_name)
+            session.add(role)
+            await session.commit()
         user = User(
             name=f"Test {role_name}",
             email=email,
