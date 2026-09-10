@@ -47,7 +47,10 @@ class UsersRepository:
         return list(result.all()), total or 0
 
     async def get_by_id(self, user_id: int) -> User | None:
-        return await self.db.scalar(self._base_stmt().where(User.id == user_id))
+        stmt = self._base_stmt().where(User.id == user_id).execution_options(
+            populate_existing=True
+        )
+        return await self.db.scalar(stmt)
 
     async def get_by_email(self, email: str) -> User | None:
         return await self.db.scalar(self._base_stmt().where(User.email == email))
@@ -70,8 +73,7 @@ class UsersRepository:
     async def create(self, user: User) -> User:
         self.db.add(user)
         await self.db.commit()
-        await self.db.refresh(user)
-        return user
+        return await self.get_by_id(user.id)
 
     async def commit(self) -> None:
         await self.db.commit()
