@@ -72,3 +72,5 @@ class RequireRole:
 
 
 AdminUser = Annotated[User, Depends(RequireRole("ADMIN"))]
+
+AgentOrAdmin = Annotated[User, Depends(RequireRole("AGENT", "ADMIN"))]

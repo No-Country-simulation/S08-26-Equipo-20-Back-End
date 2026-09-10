@@ -1,71 +1,19 @@
-import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from httpx import ASGITransport, AsyncClient
 from jose import jwt
-from sqlalchemy import delete, select
 
 from app.core.config import settings
-from app.core.database import SessionLocal
-from app.core.security import hash_password
-from app.main import app
-from app.modules.users.model import Role, User
+from tests.conftest import (
+    PASSWORD,
+    auth_header_helper as auth_header,
+    create_user_helper as create_user,
+    delete_user_helper as delete_user,
+    login_helper as login,
+    unique_email,
+)
 
-PASSWORD = "secret123"
 INVALID_CREDENTIALS = "Credenciales inválidas"
-
-
-def unique_email() -> str:
-    return f"user-{uuid.uuid4().hex[:8]}@test.com"
-
-
-async def create_user(
-    *,
-    email: str,
-    password: str = PASSWORD,
-    role_name: str = "USER",
-    active: bool = True,
-    must_change_password: bool = False,
-) -> User:
-    async with SessionLocal() as session:
-        role = await session.scalar(select(Role).where(Role.name == role_name))
-        user = User(
-            name="Test User",
-            email=email,
-            password_hash=hash_password(password),
-            role_id=role.id,
-            is_active=active,
-            must_change_password=must_change_password,
-        )
-        session.add(user)
-        await session.commit()
-        return user
-
-
-async def delete_user(email: str) -> None:
-    async with SessionLocal() as session:
-        await session.execute(delete(User).where(User.email == email))
-        await session.commit()
-
-
-async def login(client: AsyncClient, email: str, password: str) -> str:
-    response = await client.post(
-        "/auth/login", json={"email": email, "password": password}
-    )
-    assert response.status_code == 200
-    return response.json()["access_token"]
-
-
-async def auth_header(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
-
-
-@pytest.fixture
-async def client():
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
 
 
 @pytest.mark.asyncio
