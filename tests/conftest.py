@@ -1,11 +1,19 @@
 import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from app.core.database import SessionLocal
 from app.core.security import hash_password
 from app.main import app
+from app.modules.requests.model import (
+    Approval,
+    Attachment,
+    Comment,
+    Request,
+    RequestHistory,
+    Sla,
+)
 from app.modules.users.model import Role, User
 
 PASSWORD = "secret123"
@@ -13,6 +21,16 @@ PASSWORD = "secret123"
 
 def unique_email() -> str:
     return f"user-{uuid.uuid4().hex[:8]}@test.com"
+
+
+async def delete_request_tree(request_id: int) -> None:
+    async with SessionLocal() as session:
+        for model in (Approval, Comment, Attachment, RequestHistory, Sla):
+            await session.execute(
+                delete(model).where(model.request_id == request_id)
+            )
+        await session.execute(delete(Request).where(Request.id == request_id))
+        await session.commit()
 
 
 async def create_user_helper(
@@ -44,7 +62,18 @@ async def create_user_helper(
 
 async def delete_user_helper(email: str) -> None:
     async with SessionLocal() as session:
-        await session.execute(delete(User).where(User.email == email))
+        user = await session.scalar(select(User).where(User.email == email))
+        if user is None:
+            return
+        request_ids = (
+            await session.scalars(select(Request.id).where(Request.created_by == user.id))
+        ).all()
+        for request_id in request_ids:
+            await delete_request_tree(request_id)
+        await session.execute(
+            update(Request).where(Request.assigned_to == user.id).values(assigned_to=None)
+        )
+        await session.execute(delete(User).where(User.id == user.id))
         await session.commit()
 
 

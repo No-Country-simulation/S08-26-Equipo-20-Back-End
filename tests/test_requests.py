@@ -1,9 +1,16 @@
+import uuid
+
 import pytest
 
-from app.modules.requests.model import ApprovalStatus, RequestStatus
+from sqlalchemy import delete, select
+
+from app.core.database import SessionLocal
+from app.modules.categories.model import Categorie
+from app.modules.requests.model import ApprovalStatus, Request, RequestStatus
 from tests.conftest import (
     PASSWORD,
     auth_header_helper as auth_header,
+    delete_request_tree,
     login_helper as login,
 )
 
@@ -11,12 +18,27 @@ from tests.conftest import (
 @pytest.fixture
 async def sample_category(client, admin_user):
     token = await login(client, admin_user.email, PASSWORD)
+    name = f"Software Setup {uuid.uuid4().hex[:8]}"
     resp = await client.post(
-        "/categories/",
-        json={"name": "Software Setup", "requires_approval": True},
+        "/categories",
+        json={"name": name, "requires_approval": True},
         headers=await auth_header(token),
     )
-    return resp.json()
+    assert resp.status_code == 201
+    data = resp.json()
+    yield data
+    async with SessionLocal() as session:
+        refs = (
+            await session.scalars(
+                select(Request.id).where(Request.category_id == data["id"])
+            )
+        ).all()
+        for request_id in refs:
+            await delete_request_tree(request_id)
+        await session.execute(
+            delete(Categorie).where(Categorie.id == data["id"])
+        )
+        await session.commit()
 
 
 @pytest.fixture
@@ -27,7 +49,10 @@ async def sample_request(client, user_user):
         json={"description": "Need IDE installed"},
         headers=await auth_header(token),
     )
-    return resp.json()
+    assert resp.status_code == 201
+    data = resp.json()
+    yield data
+    await delete_request_tree(data["id"])
 
 
 @pytest.mark.asyncio
@@ -41,7 +66,7 @@ async def test_create_request(client, user_user):
     assert response.status_code == 201
     data = response.json()
     assert data["description"] == "My computer won't start"
-    assert data["status"] == "PENDING"
+    assert data["status"] == "NEW"
     assert data["creator"]["email"] == user_user.email
 
 
