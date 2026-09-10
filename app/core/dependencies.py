@@ -56,3 +56,19 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+class RequireRole:
+    def __init__(self, *roles: str):
+        self.roles = set(roles)
+
+    async def __call__(self, user: CurrentUser) -> User:
+        if user.role.name not in self.roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No tiene permisos para realizar esta acción",
+            )
+        return user
+
+
+AdminUser = Annotated[User, Depends(RequireRole("ADMIN"))]
