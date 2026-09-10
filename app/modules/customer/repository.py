@@ -3,10 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models.attachment import Attachment
-from app.models.comment import Comment
-from app.models.request import Request
-from app.models.user import User
+from app.modules.requests.model import Attachment, Comment, Request
+from app.modules.users.model import User
 
 from .schemas import CommentCreate, CustomerRequestCreate
 
