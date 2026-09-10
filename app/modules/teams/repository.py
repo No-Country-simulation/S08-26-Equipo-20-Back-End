@@ -23,7 +23,12 @@ class TeamsRepository:
         return list(result.all()), total or 0
 
     async def get_by_id(self, team_id: int) -> Team | None:
-        return await self.db.get(Team, team_id)
+        stmt = (
+            select(Team)
+            .where(Team.id == team_id)
+            .execution_options(populate_existing=True)
+        )
+        return await self.db.scalar(stmt)
 
     async def get_by_name(self, name: str) -> Team | None:
         return await self.db.scalar(select(Team).where(Team.name == name))
