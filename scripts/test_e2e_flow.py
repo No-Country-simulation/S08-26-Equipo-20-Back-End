@@ -132,7 +132,7 @@ async def run_e2e():
 
             # Categoría que requiere aprobación
             resp_cat = await client.post(
-                "/categories/",
+                "/categories",
                 headers=admin_headers,
                 json={"name": f"Equipos y Hardware {run_id}", "description": "Laptops y accesorios", "requires_approval": True},
             )
@@ -143,7 +143,7 @@ async def run_e2e():
 
             # Prioridad
             resp_pri = await client.post(
-                "/priorities/",
+                "/priorities",
                 headers=admin_headers,
                 json={"name": f"Alta {run_id}", "level": 1},
             )
@@ -154,7 +154,7 @@ async def run_e2e():
 
             # Equipo
             resp_team = await client.post(
-                "/teams/",
+                "/teams",
                 headers=admin_headers,
                 json={"name": f"Infraestructura TI {run_id}", "description": "Gestión de hardware y redes"},
             )
