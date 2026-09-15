@@ -19,7 +19,7 @@ services:
     image: postgres:16
     container_name: sf-back-db
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
       POSTGRES_DB: serviceflow
       POSTGRES_USER: serviceflow
