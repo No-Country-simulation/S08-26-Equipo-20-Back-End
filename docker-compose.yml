@@ -9,6 +9,8 @@ services:
     depends_on:
       sf-back-db:
         condition: service_healthy
+    volumes:
+      - ./app:/app/app
     ports:
       - "8000:8000"
     environment:
@@ -19,7 +21,7 @@ services:
     image: postgres:16
     container_name: sf-back-db
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
       POSTGRES_DB: serviceflow
       POSTGRES_USER: serviceflow

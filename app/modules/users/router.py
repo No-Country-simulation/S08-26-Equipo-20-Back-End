@@ -1,42 +1,74 @@
-from fastapi import APIRouter
-from sqlalchemy import select
-from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
-from app.core.dependencies import CurrentUser, DbDep
-from app.modules.users.model import User, Role
+from fastapi import APIRouter, Query, status
+
+from app.core.dependencies import AdminUser, CurrentUser, DbDep
+from app.modules.users.repository import UsersRepository
+from app.modules.users.schemas import (
+    UserCreate,
+    UserCreateResponse,
+    UserList,
+    UserResponse,
+    UserUpdate,
+)
+from app.modules.users.service import UsersService
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-class UserOut(BaseModel):
-    id: int
-    name: str
-    email: str
-    role_id: int
-    is_active: bool
-    model_config = ConfigDict(from_attributes=True)
 
-class UserListOut(BaseModel):
-    items: List[UserOut]
-    total: int
-
-@router.get("/", response_model=UserListOut)
+@router.get("", response_model=UserList)
 async def list_users(
+    _: CurrentUser,
     db: DbDep,
-    role: Optional[str] = None,
-    is_active: Optional[bool] = None,
-    offset: int = 0,
-    limit: int = 100
-):
-    query = select(User)
-    
-    if role:
-        query = query.join(Role).where(Role.name == role)
-        
-    if is_active is not None:
-        query = query.where(User.is_active == is_active)
-        
-    users = await db.scalars(query.offset(offset).limit(limit))
-    
-    # Not exact total but good enough for frontend
-    items = users.all()
-    return {"items": items, "total": len(items)}
+    search: str | None = Query(default=None),
+    role: str | None = Query(default=None),
+    team_id: int | None = Query(default=None),
+    is_active: bool | None = Query(default=None),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> UserList:
+    service = UsersService(UsersRepository(db))
+    items, total = await service.list(
+        search=search,
+        role=role,
+        team_id=team_id,
+        is_active=is_active,
+        offset=offset,
+        limit=limit,
+    )
+    return UserList(items=items, total=total)
+
+
+@router.post("", response_model=UserCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(
+    payload: UserCreate,
+    _: AdminUser,
+    db: DbDep,
+) -> UserCreateResponse:
+    service = UsersService(UsersRepository(db))
+    user, temporary_password = await service.create(payload)
+    return UserCreateResponse(
+        user=UserResponse.model_validate(user),
+        temporary_password=temporary_password,
+    )
+
+
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user(user_id: int, _: CurrentUser, db: DbDep) -> UserResponse:
+    service = UsersService(UsersRepository(db))
+    return await service.get(user_id)
+
+
+@router.patch("/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: int,
+    payload: UserUpdate,
+    actor: AdminUser,
+    db: DbDep,
+) -> UserResponse:
+    service = UsersService(UsersRepository(db))
+    return await service.update(user_id, payload, actor)
+
+
+@router.delete("/{user_id}", response_model=UserResponse)
+async def delete_user(user_id: int, actor: AdminUser, db: DbDep) -> UserResponse:
+    service = UsersService(UsersRepository(db))
+    return await service.deactivate(user_id, actor)
