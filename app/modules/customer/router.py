@@ -5,6 +5,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import JWTError
+
 from app.core.database import get_db
 
 from .repository import SQLCustomerRepository
@@ -18,8 +22,9 @@ from .schemas import (
     PriorityRead,
 )
 from .service import CustomerService
+from app.core.security import decode_token
 
-router = APIRouter(prefix="/requests", tags=["Customer Requests"])
+router = APIRouter(prefix="/customer/requests", tags=["Customer Requests"])
 
 _create_request_rate_limit_tracker: dict[int, list[float]] = defaultdict(list)
 _comment_rate_limit_tracker: dict[int, list[float]] = defaultdict(list)
@@ -39,9 +44,28 @@ def get_customer_service(
 ) -> CustomerService:
     return CustomerService(repository=repo)
 
+security = HTTPBearer()
 
-def get_current_user_id() -> int:
-    return 1
+def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> int:
+    try:
+        # Extrae el token de la cabecera 'Authorization: Bearer <token>'
+        payload = decode_token(credentials.credentials)
+        user_id = payload.get("sub")
+
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido: no contiene identificador de usuario",
+            )
+
+        # Convierte el 'sub' a entero (ej: "3" -> 3)
+        return int(user_id)
+
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No se pudo validar las credenciales de autenticación",
+        )
 
 
 def check_create_request_rate_limit(
