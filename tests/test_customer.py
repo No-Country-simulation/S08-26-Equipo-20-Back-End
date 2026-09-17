@@ -64,7 +64,7 @@ async def other_user():
 def _create(client, app, user_id, description=None):
     _override_user(app, user_id)
     return client.post(
-        "/requests", json={"description": description or "No me funciona el VPN corporativo."}
+        "/customer/requests", json={"description": description or "No me funciona el VPN corporativo."}
     )
 
 
@@ -101,7 +101,7 @@ async def test_list_requests_paginates(customer_client, customer_user):
         assert resp.status_code == 201
         created.append(resp.json()["id"])
     try:
-        resp = await client.get("/requests", params={"offset": 0, "limit": 2})
+        resp = await client.get("/customer/requests", params={"offset": 0, "limit": 2})
         assert resp.status_code == 200
         items = resp.json()
         assert len(items) == 2
@@ -117,12 +117,12 @@ async def test_get_request_detail_returns_nested_data(customer_client, customer_
     request_id = resp.json()["id"]
     try:
         comment = await client.post(
-            f"/requests/{request_id}/comments", json={"content": "Probé con otra tarjeta."}
+            f"/customer/requests/{request_id}/comments", json={"content": "Probé con otra tarjeta."}
         )
         assert comment.status_code == 201
         assert comment.json()["is_internal"] is False
 
-        detail = await client.get(f"/requests/{request_id}")
+        detail = await client.get(f"/customer/requests/{request_id}")
         assert detail.status_code == 200
         data = detail.json()
         assert data["id"] == request_id
@@ -140,7 +140,7 @@ async def test_get_request_status(customer_client, customer_user):
     resp = await _create(client, app, customer_user.id, None)
     request_id = resp.json()["id"]
     try:
-        resp = await client.get(f"/requests/{request_id}/status")
+        resp = await client.get(f"/customer/requests/{request_id}/status")
         assert resp.status_code == 200
         assert resp.json() == {"status": "NEW"}
     finally:
@@ -152,7 +152,7 @@ async def test_get_request_priority_default(customer_client, customer_user):
     resp = await _create(client, app, customer_user.id, None)
     request_id = resp.json()["id"]
     try:
-        resp = await client.get(f"/requests/{request_id}/priority")
+        resp = await client.get(f"/customer/requests/{request_id}/priority")
         assert resp.status_code == 200
         assert resp.json() == {"id": None, "name": "PENDING", "level": None}
     finally:
@@ -164,7 +164,7 @@ async def test_get_request_assignment_default(customer_client, customer_user):
     resp = await _create(client, app, customer_user.id, None)
     request_id = resp.json()["id"]
     try:
-        resp = await client.get(f"/requests/{request_id}/assignment")
+        resp = await client.get(f"/customer/requests/{request_id}/assignment")
         assert resp.status_code == 200
         assert resp.json() == {"team": None, "assignee": None}
     finally:
@@ -177,7 +177,7 @@ async def test_ownership_forbidden(customer_client, customer_user, other_user):
     request_id = resp.json()["id"]
     try:
         _override_user(app, other_user.id)
-        resp = await client.get(f"/requests/{request_id}")
+        resp = await client.get(f"/customer/requests/{request_id}")
         assert resp.status_code == 403
     finally:
         await _cleanup_request(request_id)
@@ -186,7 +186,7 @@ async def test_ownership_forbidden(customer_client, customer_user, other_user):
 async def test_not_found(customer_client, customer_user):
     client, app = customer_client
     _override_user(app, customer_user.id)
-    resp = await client.get("/requests/999999")
+    resp = await client.get("/customer/requests/999999")
     assert resp.status_code == 404
 
 
@@ -197,7 +197,7 @@ async def test_upload_attachment_success(customer_client, customer_user):
     try:
         content = b"contenido de prueba"
         resp = await client.post(
-            f"/requests/{request_id}/attachments",
+            f"/customer/requests/{request_id}/attachments",
             files={"file": ("nota.txt", content, "text/plain")},
         )
         assert resp.status_code == 201
@@ -206,7 +206,7 @@ async def test_upload_attachment_success(customer_client, customer_user):
         assert data["request_id"] == request_id
         assert data["uploaded_by"] == customer_user.id
 
-        detail = await client.get(f"/requests/{request_id}")
+        detail = await client.get(f"/customer/requests/{request_id}")
         assert len(detail.json()["attachments"]) == 1
     finally:
         await _cleanup_request(request_id)
@@ -218,7 +218,7 @@ async def test_upload_attachment_rejects_extension(customer_client, customer_use
     request_id = resp.json()["id"]
     try:
         resp = await client.post(
-            f"/requests/{request_id}/attachments",
+            f"/customer/requests/{request_id}/attachments",
             files={"file": ("malware.exe", b"pwned", "application/octet-stream")},
         )
         assert resp.status_code == 400
