@@ -9,6 +9,8 @@ services:
     depends_on:
       sf-back-db:
         condition: service_healthy
+    volumes:
+      - ./app:/app/app
     ports:
       - "8000:8000"
     environment:
