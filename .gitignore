@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Entorno
 .venv/
 venv/
@@ -37,3 +38,18 @@ Thumbs.db
 
 # Logs
 *.log
+=======
+# Dependencias
+node_modules/
+
+# Reportes y resultados de Playwright y Allure
+playwright-report/
+test-results/
+test-results.json
+allure-results/
+allure-report/
+
+# Logs y temporales
+*.log
+.env
+>>>>>>> e4e8a62 (Automatizacion casos de prueba API)

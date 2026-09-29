@@ -1,0 +1,35 @@
+{
+  "name": "serviceflow-api-automation",
+  "version": "1.0.0",
+  "description": "Framework de automatización de pruebas API para ServiceFlow con Playwright API y AJV",
+  "main": "playwright.config.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:e2e": "playwright test tests/E2E_API",
+    "test:contract": "playwright test tests/contract",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "allure:serve": "allure serve allure-results",
+    "allure:generate": "allure generate allure-results --clean -o allure-report",
+    "allure:open": "allure open allure-report",
+    "clean": "powershell -Command \"Remove-Item -Recurse -Force -ErrorAction SilentlyContinue playwright-report, test-results, test-results.json, allure-results, allure-report\""
+  },
+  "keywords": [
+    "playwright",
+    "api-testing",
+    "serviceflow",
+    "ajv",
+    "schema-validation"
+  ],
+  "author": "Adrian Estrada",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "allure-commandline": "^2.46.1",
+    "allure-playwright": "^3.12.2"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
+  }
+}
