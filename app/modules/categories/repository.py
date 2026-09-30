@@ -29,8 +29,13 @@ class CategoriesRepository:
         )
         return await self.db.scalar(stmt)
 
-    async def get_by_name(self, name: str) -> Categorie | None:
-        return await self.db.scalar(select(Categorie).where(Categorie.name == name))
+    async def get_by_name(
+        self, name: str, *, exclude_id: int | None = None
+    ) -> Categorie | None:
+        stmt = select(Categorie).where(Categorie.name == name)
+        if exclude_id is not None:
+            stmt = stmt.where(Categorie.id != exclude_id)
+        return await self.db.scalar(stmt)
 
     async def has_requests(self, category_id: int) -> bool:
         stmt = (

@@ -53,13 +53,15 @@ class CategoriesService:
         fields = payload.model_fields_set
 
         if "name" in fields:
-            if payload.name is not None and await self.repository.get_by_name(
-                payload.name
-            ) is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=CATEGORY_NAME_EXISTS,
+            if payload.name is not None:
+                existing = await self.repository.get_by_name(
+                    payload.name, exclude_id=category_id
                 )
+                if existing is not None:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=CATEGORY_NAME_EXISTS,
+                    )
             category.name = payload.name
 
         if "description" in fields:
