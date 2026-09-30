@@ -121,7 +121,25 @@ class RequestsService:
         # Apply updates
         result = await self.repository.update(request, updates)
 
-        # Auto-create SLA with defaults if not exists
+        # Determinar nivel de prioridad para calcular SLA
+        priority_level = 1 # Valor por defecto si por alguna razón no hay prioridad
+        priority_id = updates.get("priority_id") or request.priority_id
+        if priority_id:
+            p = await self.db.get(Prioritie, priority_id)
+            if p:
+                priority_level = p.level
+
+        # Calcular días de resolución según regla de negocio
+        if priority_level == 1:
+            res_days = 7
+        elif 2 <= priority_level <= 4:
+            res_days = 5
+        elif 5 <= priority_level <= 7:
+            res_days = 3
+        else: # 8, 9, 10
+            res_days = 1
+
+        # Auto-create SLA with dynamic dates based on Priority if not exists
         if is_first_assignment:
             now = datetime.now(timezone.utc)
             sla = await self.repository.get_sla_by_request(request_id)
@@ -131,13 +149,17 @@ class RequestsService:
                 await self.repository.create_sla(
                     request_id,
                     {
-                        "response_deadline": now
-                        + timedelta(hours=DEFAULT_RESPONSE_HOURS),
-                        "resolution_deadline": now
-                        + timedelta(hours=DEFAULT_RESOLUTION_HOURS),
+                        "response_deadline": now + timedelta(hours=24), # Respuesta estándar 24h
+                        "resolution_deadline": now + timedelta(days=res_days),
                         "responded_at": now,
                     },
                 )
+        elif "priority_id" in updates:
+            # Si ya existía un SLA pero cambiaron la prioridad, recalcular el vencimiento
+            sla = await self.repository.get_sla_by_request(request_id)
+            if sla:
+                new_resolution = sla.created_at + timedelta(days=res_days)
+                await self.repository.update_sla(sla, {"resolution_deadline": new_resolution})
 
         # Auto-create approval if category requires it
         if "category_id" in updates:
