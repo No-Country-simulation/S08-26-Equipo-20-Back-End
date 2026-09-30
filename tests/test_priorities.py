@@ -13,6 +13,9 @@ from app.modules.users.model import Role, User
 
 PASSWORD = "secret123"
 
+MIN_LEVEL = 1
+MAX_LEVEL = 10
+
 
 def unique_email() -> str:
     return f"priority-{uuid.uuid4().hex[:8]}@test.com"
@@ -47,7 +50,20 @@ async def delete_user(email: str) -> None:
         await session.commit()
 
 
-async def create_priority(name: str, level: int) -> Prioritie:
+async def free_level() -> int:
+    async with SessionLocal() as session:
+        used = set((await session.scalars(select(Prioritie.level))).all())
+    for level in range(MIN_LEVEL, MAX_LEVEL + 1):
+        if level not in used:
+            return level
+    raise AssertionError(
+        f"No quedan niveles libres entre {MIN_LEVEL} y {MAX_LEVEL}"
+    )
+
+
+async def create_priority(name: str, level: int | None = None) -> Prioritie:
+    if level is None:
+        level = await free_level()
     async with SessionLocal() as session:
         priority = Prioritie(name=name, level=level)
         session.add(priority)
@@ -91,14 +107,15 @@ async def client():
 async def test_create_priority_success(client):
     admin_email, headers = await admin_token(client)
     name = unique_name()
+    level = await free_level()
     try:
         response = await client.post(
-            "/priorities", headers=headers, json={"name": name, "level": 1}
+            "/priorities", headers=headers, json={"name": name, "level": level}
         )
         assert response.status_code == 201
         data = response.json()
         assert data["name"] == name
-        assert data["level"] == 1
+        assert data["level"] == level
 
         priority_id = data["id"]
         response = await client.get("/priorities", headers=headers)
@@ -112,10 +129,11 @@ async def test_create_priority_success(client):
 async def test_create_priority_duplicate_name(client):
     admin_email, headers = await admin_token(client)
     name = unique_name()
-    priority = await create_priority(name, 1)
+    priority = await create_priority(name)
+    duplicate_level = await free_level()
     try:
         response = await client.post(
-            "/priorities", headers=headers, json={"name": name, "level": 2}
+            "/priorities", headers=headers, json={"name": name, "level": duplicate_level}
         )
         assert response.status_code == 409
         assert response.json()["detail"] == "Ya existe una prioridad con ese nombre"
@@ -127,12 +145,12 @@ async def test_create_priority_duplicate_name(client):
 @pytest.mark.asyncio
 async def test_create_priority_duplicate_level(client):
     admin_email, headers = await admin_token(client)
-    priority = await create_priority(unique_name(), 1)
+    priority = await create_priority(unique_name())
     try:
         response = await client.post(
             "/priorities",
             headers=headers,
-            json={"name": unique_name(), "level": 1},
+            json={"name": unique_name(), "level": priority.level},
         )
         assert response.status_code == 409
         assert response.json()["detail"] == "Ya existe una prioridad con ese nivel"
@@ -164,12 +182,12 @@ async def test_list_priorities_requires_auth(client):
 @pytest.mark.asyncio
 async def test_get_priority(client):
     admin_email, headers = await admin_token(client)
-    priority = await create_priority(unique_name(), 3)
+    priority = await create_priority(unique_name())
     try:
         response = await client.get(f"/priorities/{priority.id}", headers=headers)
         assert response.status_code == 200
         assert response.json()["name"] == priority.name
-        assert response.json()["level"] == 3
+        assert response.json()["level"] == priority.level
     finally:
         await delete_priority(priority.id)
         await delete_user(admin_email)
@@ -189,17 +207,56 @@ async def test_get_priority_not_found(client):
 @pytest.mark.asyncio
 async def test_update_priority(client):
     admin_email, headers = await admin_token(client)
-    priority = await create_priority(unique_name(), 1)
+    priority = await create_priority(unique_name())
+    new_name = unique_name()
+    new_level = await free_level()
+    try:
+        response = await client.patch(
+            f"/priorities/{priority.id}",
+            headers=headers,
+            json={"name": new_name, "level": new_level},
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == new_name
+        assert response.json()["level"] == new_level
+    finally:
+        await delete_priority(priority.id)
+        await delete_user(admin_email)
+
+
+@pytest.mark.asyncio
+async def test_update_priority_only_changes_level(client):
+    admin_email, headers = await admin_token(client)
+    priority = await create_priority(unique_name())
+    new_level = await free_level()
+    try:
+        response = await client.patch(
+            f"/priorities/{priority.id}",
+            headers=headers,
+            json={"name": priority.name, "level": new_level},
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == priority.name
+        assert response.json()["level"] == new_level
+    finally:
+        await delete_priority(priority.id)
+        await delete_user(admin_email)
+
+
+@pytest.mark.asyncio
+async def test_update_priority_only_changes_name(client):
+    admin_email, headers = await admin_token(client)
+    priority = await create_priority(unique_name())
     new_name = unique_name()
     try:
         response = await client.patch(
             f"/priorities/{priority.id}",
             headers=headers,
-            json={"name": new_name, "level": 2},
+            json={"name": new_name, "level": priority.level},
         )
         assert response.status_code == 200
         assert response.json()["name"] == new_name
-        assert response.json()["level"] == 2
+        assert response.json()["level"] == priority.level
     finally:
         await delete_priority(priority.id)
         await delete_user(admin_email)
@@ -208,8 +265,8 @@ async def test_update_priority(client):
 @pytest.mark.asyncio
 async def test_update_priority_duplicate_name(client):
     admin_email, headers = await admin_token(client)
-    priority_a = await create_priority(unique_name(), 1)
-    priority_b = await create_priority(unique_name(), 2)
+    priority_a = await create_priority(unique_name())
+    priority_b = await create_priority(unique_name())
     try:
         response = await client.patch(
             f"/priorities/{priority_b.id}",
@@ -217,6 +274,7 @@ async def test_update_priority_duplicate_name(client):
             json={"name": priority_a.name},
         )
         assert response.status_code == 409
+        assert response.json()["detail"] == "Ya existe una prioridad con ese nombre"
     finally:
         await delete_priority(priority_a.id)
         await delete_priority(priority_b.id)
@@ -226,13 +284,13 @@ async def test_update_priority_duplicate_name(client):
 @pytest.mark.asyncio
 async def test_update_priority_duplicate_level(client):
     admin_email, headers = await admin_token(client)
-    priority_a = await create_priority(unique_name(), 1)
-    priority_b = await create_priority(unique_name(), 2)
+    priority_a = await create_priority(unique_name())
+    priority_b = await create_priority(unique_name())
     try:
         response = await client.patch(
             f"/priorities/{priority_b.id}",
             headers=headers,
-            json={"level": 1},
+            json={"level": priority_a.level},
         )
         assert response.status_code == 409
         assert response.json()["detail"] == "Ya existe una prioridad con ese nivel"
@@ -251,7 +309,7 @@ async def test_non_admin_cannot_create_priority(client):
         response = await client.post(
             "/priorities",
             headers=auth_header(token),
-            json={"name": unique_name(), "level": 1},
+            json={"name": unique_name(), "level": await free_level()},
         )
         assert response.status_code == 403
         assert (
@@ -265,7 +323,7 @@ async def test_non_admin_cannot_create_priority(client):
 @pytest.mark.asyncio
 async def test_delete_priority_without_requests(client):
     admin_email, headers = await admin_token(client)
-    priority = await create_priority(unique_name(), 1)
+    priority = await create_priority(unique_name())
     try:
         response = await client.delete(f"/priorities/{priority.id}", headers=headers)
         assert response.status_code == 204
@@ -279,7 +337,7 @@ async def test_delete_priority_without_requests(client):
 @pytest.mark.asyncio
 async def test_delete_priority_with_requests_blocked(client):
     admin_email, headers = await admin_token(client)
-    priority = await create_priority(unique_name(), 1)
+    priority = await create_priority(unique_name())
     creator_email = unique_email()
     creator = await create_db_user(email=creator_email)
     request_id = None

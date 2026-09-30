@@ -207,6 +207,24 @@ async def test_update_category(client):
 
 
 @pytest.mark.asyncio
+async def test_update_category_only_changes_description(client):
+    admin_email, headers = await admin_token(client)
+    category = await create_category(unique_name())
+    try:
+        response = await client.patch(
+            f"/categories/{category.id}",
+            headers=headers,
+            json={"name": category.name, "description": "Solo la descripción"},
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == category.name
+        assert response.json()["description"] == "Solo la descripción"
+    finally:
+        await delete_category(category.id)
+        await delete_user(admin_email)
+
+
+@pytest.mark.asyncio
 async def test_update_category_duplicate_name(client):
     admin_email, headers = await admin_token(client)
     category_a = await create_category(unique_name())
@@ -218,6 +236,7 @@ async def test_update_category_duplicate_name(client):
             json={"name": category_a.name},
         )
         assert response.status_code == 409
+        assert response.json()["detail"] == "Ya existe una categoría con ese nombre"
     finally:
         await delete_category(category_a.id)
         await delete_category(category_b.id)

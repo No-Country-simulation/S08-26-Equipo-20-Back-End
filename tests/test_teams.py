@@ -199,6 +199,24 @@ async def test_update_team_duplicate_name(client):
 
 
 @pytest.mark.asyncio
+async def test_update_team_same_name(client):
+    admin_email, headers = await admin_token(client)
+    team = await create_team(unique_name())
+    try:
+        response = await client.patch(
+            f"/teams/{team.id}",
+            headers=headers,
+            json={"name": team.name, "description": "Sin cambio de nombre"},
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == team.name
+        assert response.json()["description"] == "Sin cambio de nombre"
+    finally:
+        await delete_team(team.id)
+        await delete_user(admin_email)
+
+
+@pytest.mark.asyncio
 async def test_non_admin_cannot_create_team(client):
     user_email = unique_email()
     await create_db_user(email=user_email)
