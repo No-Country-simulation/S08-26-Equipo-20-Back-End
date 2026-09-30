@@ -46,7 +46,7 @@ class TeamsService:
 
         if "name" in fields:
             if payload.name is not None and await self.repository.get_by_name(
-                payload.name
+                payload.name, exclude_id=team.id
             ) is not None:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,

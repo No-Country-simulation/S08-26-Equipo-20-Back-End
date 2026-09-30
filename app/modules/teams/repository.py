@@ -30,8 +30,13 @@ class TeamsRepository:
         )
         return await self.db.scalar(stmt)
 
-    async def get_by_name(self, name: str) -> Team | None:
-        return await self.db.scalar(select(Team).where(Team.name == name))
+    async def get_by_name(
+        self, name: str, *, exclude_id: int | None = None
+    ) -> Team | None:
+        stmt = select(Team).where(Team.name == name)
+        if exclude_id is not None:
+            stmt = stmt.where(Team.id != exclude_id)
+        return await self.db.scalar(stmt)
 
     async def has_users(self, team_id: int) -> bool:
         stmt = select(func.count()).select_from(User).where(User.team_id == team_id)
