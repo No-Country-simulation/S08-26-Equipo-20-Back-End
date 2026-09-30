@@ -99,7 +99,7 @@ class RequestsRepository:
             select(RequestHistory)
             .options(selectinload(RequestHistory.user))
             .where(RequestHistory.request_id == request_id)
-            .order_by(RequestHistory.created_at)
+            .order_by(RequestHistory.created_at.desc())
         )
         result = await self.db.scalars(stmt)
         return list(result.all())
