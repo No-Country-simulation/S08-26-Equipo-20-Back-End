@@ -206,6 +206,43 @@ async def test_update_priority(client):
 
 
 @pytest.mark.asyncio
+async def test_update_priority_only_changes_level(client):
+    admin_email, headers = await admin_token(client)
+    priority = await create_priority(unique_name(), 1)
+    try:
+        response = await client.patch(
+            f"/priorities/{priority.id}",
+            headers=headers,
+            json={"name": priority.name, "level": 2},
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == priority.name
+        assert response.json()["level"] == 2
+    finally:
+        await delete_priority(priority.id)
+        await delete_user(admin_email)
+
+
+@pytest.mark.asyncio
+async def test_update_priority_only_changes_name(client):
+    admin_email, headers = await admin_token(client)
+    priority = await create_priority(unique_name(), 3)
+    new_name = unique_name()
+    try:
+        response = await client.patch(
+            f"/priorities/{priority.id}",
+            headers=headers,
+            json={"name": new_name, "level": priority.level},
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == new_name
+        assert response.json()["level"] == 3
+    finally:
+        await delete_priority(priority.id)
+        await delete_user(admin_email)
+
+
+@pytest.mark.asyncio
 async def test_update_priority_duplicate_name(client):
     admin_email, headers = await admin_token(client)
     priority_a = await create_priority(unique_name(), 1)
@@ -217,6 +254,7 @@ async def test_update_priority_duplicate_name(client):
             json={"name": priority_a.name},
         )
         assert response.status_code == 409
+        assert response.json()["detail"] == "Ya existe una prioridad con ese nombre"
     finally:
         await delete_priority(priority_a.id)
         await delete_priority(priority_b.id)

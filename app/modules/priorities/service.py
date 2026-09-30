@@ -55,22 +55,27 @@ class PrioritiesService:
         fields = payload.model_fields_set
 
         if "name" in fields:
-            if payload.name is not None and await self.repository.get_by_name(
-                payload.name
-            ) is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=PRIORITY_NAME_EXISTS,
+            if payload.name is not None:
+                existing = await self.repository.get_by_name(
+                    payload.name, exclude_id=priority_id
                 )
+                if existing is not None:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=PRIORITY_NAME_EXISTS,
+                    )
             priority.name = payload.name
 
         if "level" in fields:
-            existing = await self.repository.get_by_level(payload.level)
-            if payload.level is not None and existing is not None:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=PRIORITY_LEVEL_EXISTS,
+            if payload.level is not None:
+                existing = await self.repository.get_by_level(
+                    payload.level, exclude_id=priority_id
                 )
+                if existing is not None:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=PRIORITY_LEVEL_EXISTS,
+                    )
             priority.level = payload.level
 
         await self.repository.commit()

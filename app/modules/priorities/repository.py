@@ -29,11 +29,20 @@ class PrioritiesRepository:
         )
         return await self.db.scalar(stmt)
 
-    async def get_by_name(self, name: str) -> Prioritie | None:
-        return await self.db.scalar(select(Prioritie).where(Prioritie.name == name))
+    async def get_by_name(
+        self, name: str, *, exclude_id: int | None = None
+    ) -> Prioritie | None:
+        stmt = select(Prioritie).where(Prioritie.name == name)
+        if exclude_id is not None:
+            stmt = stmt.where(Prioritie.id != exclude_id)
+        return await self.db.scalar(stmt)
 
-    async def get_by_level(self, level: int) -> Prioritie | None:
+    async def get_by_level(
+        self, level: int, *, exclude_id: int | None = None
+    ) -> Prioritie | None:
         stmt = select(Prioritie).where(Prioritie.level == level)
+        if exclude_id is not None:
+            stmt = stmt.where(Prioritie.id != exclude_id)
         return await self.db.scalar(stmt)
 
     async def has_requests(self, priority_id: int) -> bool:
